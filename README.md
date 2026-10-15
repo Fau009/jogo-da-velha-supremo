@@ -1,23 +1,24 @@
 # Jogo da Velha Supremo
 
-Uma coletânea com **10 jogos da velha diferentes**, jogados no mesmo aparelho, com nomes dos jogadores, placar geral e histórico — tudo salvo no próprio navegador.
+Uma coletânea com **11 jogos da velha diferentes**, jogados no mesmo aparelho, com nomes dos jogadores, placar geral e histórico — tudo salvo no próprio navegador.
 
 **Jogar:** https://fau009.github.io/jogo-da-velha-supremo/
 
 ## Como funciona
 
 1. Na **tela inicial**, adicione os jogadores da sessão (Gerenciar). Dá para ter 2 ou mais.
-2. Toque em **Jogar** e escolha um dos 10 modelos.
+2. Toque em **Jogar** e escolha um dos 11 modelos.
 3. Escolha os **2 participantes** daquela partida (com opção de trocar os lados) e comece.
 4. Dá para **voltar ao início** a qualquer momento (partida abandonada não conta).
 5. No fim: revanche, escolher outro jogo ou início. O resultado entra no **placar geral** e no **histórico**.
 
 A tela inicial mostra o placar geral (vitórias, empates, derrotas e pontos: 3 por vitória, 1 por empate), quantas partidas por versão e o histórico das últimas partidas. Tudo fica salvo no `localStorage`; o botão **Limpar sessão** apaga tudo.
 
-## Os 10 modelos
+## Os 11 modelos
 
 | Jogo | Tabuleiro | Como vence |
 |---|---|---|
+| **Clássico** | 3×3 | O jogo da velha de sempre: 3 em linha |
 | **Supremo** (Ultimate) | 9 tabuleiros 3×3 | Conquistar 3 tabuleiros em linha; a jogada manda o adversário para o tabuleiro correspondente |
 | **Engole-Engole** | 3×3 | Peças de 3 tamanhos que cobrem as menores; 3 peças suas visíveis em linha |
 | **Gomoku** | 15×15 | 5 (ou mais) em linha |

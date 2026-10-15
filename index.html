@@ -570,6 +570,28 @@ function clearCell(c) { c.innerHTML = ""; c.className = "cell"; c.disabled = fal
 const VAR = {};
 function def(v) { VAR[v.id] = v; }
 
+/* 0 — Clássico (o jogo da velha de sempre) */
+def({
+  id: "classico", nome: "Clássico", tag: "O original", sideLabels: ["X", "O"],
+  desc: "O jogo da velha de sempre: três em linha no 3×3.",
+  rules: "Alternem colocando X e O numa casa vazia. Vence quem alinhar 3 símbolos seus na horizontal, vertical ou diagonal. Empate se encher sem ninguém alinhar.",
+  icon: '<path d="M18 8v32M30 8v32M8 18h32M8 30h32"/>',
+  start(mount, sides, api) {
+    const g = Array(9).fill(""); let cur = 0, over = false;
+    const grid = makeGrid(3, 3, onCell, { max: 300, gap: 8 });
+    mount.append(grid.root);
+    function onCell(i) {
+      if (over || g[i]) return;
+      const sym = cur === 0 ? "X" : "O"; g[i] = sym; grid.cells[i].append(symSpan(sym)); grid.cells[i].disabled = true;
+      const w = line3(g);
+      if (w) { over = true; w.forEach(k => grid.cells[k].classList.add("win")); return api.finish(cur); }
+      if (g.every(v => v)) { over = true; return api.finish(null); }
+      cur = 1 - cur; api.setTurn(cur);
+    }
+    api.setTurn(0);
+  }
+});
+
 /* 2 — Ultimate / Supremo (destaque) */
 def({
   id: "supremo", nome: "Supremo", tag: "Estratégia", sideLabels: ["X", "O"],
