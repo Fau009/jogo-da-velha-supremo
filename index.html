@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jogo da Velha Supremo</title>
+<meta name="description" content="Coletânea de 10 jogos da velha diferentes, com nomes dos jogadores, placar geral e histórico salvos no próprio navegador.">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14151a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f6bed'/%3E%3Cg stroke='white' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M13 6v20M19 6v20M6 13h20M6 19h20'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Hub de jogos: home com placar e histórico, grade de modelos, e a tela de cada jogo.
+   Dois jogadores por partida, cores fixas azul (P1) e coral (P2). Claro e escuro. */
+:root {
+  --bg: #eef0f4; --panel: #ffffff; --panel-2: #f3f4f8; --fg: #1a1c22; --muted: #6a7180; --line: #e2e4ec;
+  --p1: #4f6bed; --p1-soft: #e7ebfe; --p2: #ef5a6f; --p2-soft: #fde6e9; --ok: #1a9e55; --gold: #e0a429;
+  --radius: 16px;
+  --display: "Baloo 2", system-ui, sans-serif;
+  --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14151a; --panel: #1c1e25; --panel-2: #23262f; --fg: #eceef3; --muted: #99a0ad; --line: #2c2f3a;
+    --p1: #8098ff; --p1-soft: #22294a; --p2: #ff8193; --p2-soft: #3d2730; --ok: #38d07f; --gold: #f0bb4e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14151a; --panel: #1c1e25; --panel-2: #23262f; --fg: #eceef3; --muted: #99a0ad; --line: #2c2f3a;
+  --p1: #8098ff; --p1-soft: #22294a; --p2: #ff8193; --p2-soft: #3d2730; --ok: #38d07f; --gold: #f0bb4e; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--p1); outline-offset: 2px; }
+.wrap { max-width: 640px; margin-inline: auto; padding: 16px; }
+.screen { display: none; }
+.screen.on { display: block; }
+h1, h2, h3 { font-family: var(--display); margin: 0; line-height: 1.05; font-weight: 700; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* Barra superior */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.topbar .wrap { display: flex; align-items: center; gap: 10px; padding-block: 10px; }
+.back { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: .45rem .8rem; font-weight: 600; font-size: .85rem; }
+.back.armed { background: var(--p2); border-color: var(--p2); color: #fff; }
+.topbar .ttl { font-family: var(--display); font-weight: 700; font-size: 1.05rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-btn { border: 1px solid var(--line); background: var(--panel); width: 36px; height: 36px; border-radius: 10px; font-size: 1rem; flex: none; }
+
+/* Botões */
+.btn { border: 0; border-radius: 12px; padding: .8rem 1.1rem; font-weight: 700; font-size: .95rem; background: var(--p1); color: #fff; }
+.btn:active { transform: scale(.98); }
+.btn.block { width: 100%; }
+.btn.alt { background: var(--panel); color: var(--fg); border: 1.5px solid var(--line); }
+.btn.ok { background: var(--ok); }
+.btn.danger { background: transparent; color: var(--p2); border: 1.5px solid var(--p2); }
+.btn.sm { padding: .5rem .8rem; font-size: .85rem; border-radius: 10px; }
+.btn.armed { background: var(--p2); color: #fff; border-color: var(--p2); }
+
+/* Home */
+.hero { text-align: center; padding: 10px 0 18px; }
+.hero h1 { font-size: clamp(2rem, 9vw, 2.8rem); letter-spacing: -.01em; }
+.hero h1 .s { color: var(--p1); } .hero h1 .u { color: var(--p2); }
+.hero p { color: var(--muted); margin: 6px 0 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+.card h2 { font-size: 1.15rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sectitle { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+
+/* Placar */
+table.board-score { width: 100%; border-collapse: collapse; }
+table.board-score th, table.board-score td { text-align: center; padding: 8px 6px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+table.board-score th { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+table.board-score td.name { text-align: left; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+table.board-score tr:last-child td { border-bottom: 0; }
+.rankdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.pts { font-family: var(--mono); font-weight: 700; color: var(--p1); }
+.lead-row td { background: var(--p1-soft); }
+.empty-note { color: var(--muted); font-size: .9rem; text-align: center; padding: 10px 0; }
+
+/* Jogadores (home chips + gestão) */
+.players-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pchip { display: inline-flex; align-items: center; gap: 7px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: .4rem .7rem .4rem .5rem; font-weight: 600; font-size: .9rem; }
+.pchip .av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: .8rem; font-family: var(--display); flex: none; }
+.pchip .rm { border: 0; background: transparent; color: var(--muted); font-size: 1.1rem; line-height: 1; padding: 0 2px; }
+.addrow { display: flex; gap: 8px; margin-top: 12px; }
+.addrow input { flex: 1; min-width: 0; font: inherit; background: var(--panel-2); border: 1.5px solid var(--line); border-radius: 10px; padding: .6rem .8rem; color: var(--fg); }
+.addrow input:focus { outline: none; border-color: var(--p1); }
+
+/* Histórico */
+.hist { display: flex; flex-direction: column; gap: 8px; }
+.hrow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; font-size: .88rem; }
+.hrow .hv { font-family: var(--display); font-weight: 700; font-size: .78rem; padding: 2px 7px; border-radius: 6px; background: var(--bg); flex: none; max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hrow .hres { margin-left: auto; font-weight: 600; white-space: nowrap; }
+.hrow .hres .w { color: var(--ok); }
+.perversion { display: flex; flex-wrap: wrap; gap: 6px; }
+.pvtag { font-size: .78rem; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: .3rem .6rem; }
+.pvtag b { color: var(--p1); }
+
+/* Grade de jogos */
+.games { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.gcard { text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 8px; transition: border-color .15s, transform .1s; }
+.gcard:hover { border-color: var(--p1); } .gcard:active { transform: scale(.98); }
+.gcard .gico { width: 44px; height: 44px; border-radius: 12px; background: var(--p1-soft); display: grid; place-items: center; }
+.gcard .gico svg { width: 26px; height: 26px; stroke: var(--p1); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gcard .gico svg .f { fill: var(--p1); stroke: none; }
+.gcard h3 { font-size: 1rem; }
+.gcard p { margin: 0; font-size: .8rem; color: var(--muted); line-height: 1.4; }
+.gcard .gtag { font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: var(--p2); font-weight: 700; }
+
+/* Setup da partida */
+.vs-pick { display: flex; flex-direction: column; gap: 12px; }
+.side-pick { display: flex; flex-direction: column; gap: 6px; }
+.side-pick .lab { font-size: .8rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.chips-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips-pick button { border: 1.5px solid var(--line); background: var(--panel); border-radius: 999px; padding: .45rem .8rem; font-weight: 600; font-size: .88rem; }
+.chips-pick button[aria-pressed="true"] { border-color: var(--p1); background: var(--p1-soft); color: var(--p1); }
+.chips-pick button:disabled { opacity: .4; }
+.swap { align-self: center; }
+
+/* Cabeçalho do jogo */
+.ghead { display: flex; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+.pbadge { flex: 1; border: 1.5px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--panel); display: flex; align-items: center; gap: 8px; min-width: 0; transition: border-color .2s, background .2s; }
+.pbadge.turn { border-color: var(--pc); background: color-mix(in srgb, var(--pc) 10%, var(--panel)); }
+.pbadge .av { width: 28px; height: 28px; border-radius: 50%; background: var(--pc); color: #fff; display: grid; place-items: center; font-weight: 700; font-family: var(--display); flex: none; }
+.pbadge .nm { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+.pbadge .rl { font-size: .72rem; color: var(--muted); }
+.vs { align-self: center; font-family: var(--display); font-weight: 700; color: var(--muted); }
+.status { text-align: center; font-weight: 600; min-height: 1.4em; margin-bottom: 10px; }
+.status .hl { color: var(--p1); }
+
+/* Tabuleiro genérico */
+.board { display: grid; gap: var(--cg, 6px); margin-inline: auto; touch-action: manipulation; }
+.cell { aspect-ratio: 1; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; display: grid; place-items: center; font-family: var(--display); font-weight: 800; padding: 0; position: relative; }
+.cell:disabled { cursor: default; }
+.cell.playable:hover { border-color: var(--p1); }
+.cell.win { background: color-mix(in srgb, var(--ok) 22%, var(--panel-2)); border-color: var(--ok); }
+.cell .sym { line-height: 1; }
+.sym.x { color: var(--p1); } .sym.o { color: var(--p2); }
+.disc { width: 74%; height: 74%; border-radius: 50%; box-shadow: inset 0 -3px 0 rgba(0,0,0,.15); }
+.disc.p1 { background: var(--p1); } .disc.p2 { background: var(--p2); }
+.numtok { font-family: var(--mono); font-weight: 700; }
+.numtok.p1 { color: var(--p1); } .numtok.p2 { color: var(--p2); }
+
+/* Picker de símbolo / número */
+.picker { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
+.picker .pk { border: 1.5px solid var(--line); background: var(--panel); border-radius: 10px; min-width: 46px; height: 46px; padding: 0 10px; font-family: var(--display); font-weight: 800; font-size: 1.1rem; }
+.picker .pk[aria-pressed="true"] { border-color: var(--fg); box-shadow: 0 0 0 2px var(--fg) inset; }
+.picker .pk.x { color: var(--p1); } .picker .pk.o { color: var(--p2); }
+.picker .pk:disabled { opacity: .3; }
+.pool { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.pool .slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pool .pbtn { border: 1.5px solid var(--line); background: var(--panel); border-radius: 10px; width: 54px; height: 54px; display: grid; place-items: center; }
+.pool .pbtn[aria-pressed="true"] { border-color: var(--pc); box-shadow: 0 0 0 2px var(--pc) inset; }
+.pool .pbtn:disabled { opacity: .35; }
+.pool .pdisc { border-radius: 50%; background: var(--pc); box-shadow: inset 0 -3px 0 rgba(0,0,0,.15); }
+.pool .cnt { font-size: .72rem; color: var(--muted); }
+
+/* Ultimate */
+.ultimate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--line); padding: 6px; border-radius: 14px; margin-inline: auto; }
+.mini { background: var(--panel-2); border-radius: 8px; padding: 4px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; position: relative; }
+.mini.active { outline: 2px solid var(--p1); outline-offset: 1px; }
+.mini.won { }
+.mini .mc { aspect-ratio: 1; border: 0; background: var(--panel); border-radius: 4px; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: clamp(.7rem, 3.4vw, 1.1rem); padding: 0; }
+.mini .mc.x { color: var(--p1); } .mini .mc.o { color: var(--p2); }
+.mini .overlay { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: clamp(1.6rem, 11vw, 3rem); border-radius: 8px; background: color-mix(in srgb, var(--panel) 72%, transparent); }
+.mini .overlay.x { color: var(--p1); } .mini .overlay.o { color: var(--p2); } .mini .overlay.d { color: var(--muted); font-size: 1.2rem; }
+
+/* Rolável (gomoku) */
+.scrollbox { overflow: auto; border: 1px solid var(--line); border-radius: 12px; -webkit-overflow-scrolling: touch; max-height: 68vh; }
+.scrollbox .board { margin: 8px; }
+
+/* Resultado */
+.overlay { position: fixed; inset: 0; z-index: 40; background: rgba(10,12,18,.6); display: grid; place-items: center; padding: 20px; }
+.result { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 24px; width: 100%; max-width: 360px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
+.result .emoji { font-size: 3rem; }
+.result h2 { font-size: 1.8rem; }
+.result h2.p1 { color: var(--p1); } .result h2.p2 { color: var(--p2); } .result h2.draw { color: var(--gold); }
+.result .acts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+
+.rules { font-size: .85rem; color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.5; }
+.rules b { color: var(--fg); }
+details.ruleswrap { margin-bottom: 12px; }
+details.ruleswrap summary { cursor: pointer; font-size: .85rem; font-weight: 600; color: var(--p1); list-style: none; }
+details.ruleswrap summary::-webkit-details-marker { display: none; }
+
+.app-links { font-size: 12px; text-align: center; opacity: .6; margin-top: 18px; }
+.app-links a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.app-links a:hover { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+</head>
+<body>
+
+<header class="topbar" id="topbar" hidden>
+  <div class="wrap">
+    <button class="back" id="backbtn">← Início</button>
+    <span class="ttl" id="toptitle"></span>
+    <button class="theme-btn" id="themebtn" aria-label="Tema">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- HOME -->
+  <section class="screen on" id="home">
+    <div class="hero">
+      <h1>Jogo da Velha <span class="s">Su</span><span class="u">premo</span></h1>
+      <p>10 jogos da velha diferentes, com placar e histórico salvos aqui no navegador.</p>
+    </div>
+
+    <div class="card">
+      <h2>Jogadores da sessão <button class="btn alt sm" id="toggle-manage">Gerenciar</button></h2>
+      <div class="players-chips" id="home-players"></div>
+      <div id="manage" hidden>
+        <div class="addrow">
+          <input id="newname" maxlength="14" placeholder="Nome do jogador" autocomplete="off">
+          <button class="btn sm" id="addplayer">Adicionar</button>
+        </div>
+        <p class="muted" style="font-size:.8rem;margin:.6rem 0 0">Toque no × para remover. Mínimo de 2 para jogar.</p>
+      </div>
+    </div>
+
+    <button class="btn block" id="go-play" style="margin-bottom:14px">▶ Jogar</button>
+
+    <div class="card">
+      <h2>Placar geral</h2>
+      <div id="scoreboard"></div>
+    </div>
+
+    <div class="card">
+      <h2>Partidas por versão</h2>
+      <div class="perversion" id="perversion"></div>
+    </div>
+
+    <div class="card">
+      <h2>Histórico</h2>
+      <div class="hist" id="history"></div>
+    </div>
+
+    <button class="btn danger block sm" id="clear-session">Limpar sessão (apaga tudo)</button>
+    <p class="app-links" data-app-links></p>
+  </section>
+
+  <!-- SELEÇÃO DE JOGO -->
+  <section class="screen" id="select">
+    <h2 style="margin-bottom:12px">Escolha o jogo</h2>
+    <div class="games" id="games"></div>
+  </section>
+
+  <!-- SETUP DA PARTIDA -->
+  <section class="screen" id="setup">
+    <h2 id="setup-title" style="margin-bottom:4px"></h2>
+    <p class="muted" id="setup-desc" style="margin:0 0 14px"></p>
+    <div class="vs-pick" id="vs-pick"></div>
+    <button class="btn block ok" id="start-match" style="margin-top:16px">Começar partida</button>
+  </section>
+
+  <!-- JOGO -->
+  <section class="screen" id="game">
+    <div class="ghead" id="ghead"></div>
+    <div class="status" id="status"></div>
+    <details class="ruleswrap" id="ruleswrap"><summary>ⓘ Como ganhar</summary><div class="rules" id="game-rules" style="margin-top:8px"></div></details>
+    <div id="game-board"></div>
+  </section>
+
+</main>
+
+<div class="overlay" id="result-overlay" hidden>
+  <div class="result">
+    <div class="emoji" id="result-emoji">🏆</div>
+    <h2 id="result-title">—</h2>
+    <p class="muted" id="result-sub"></p>
+    <div class="acts">
+      <button class="btn ok" id="rematch">Revanche</button>
+      <button class="btn alt" id="other-game">Escolher outro jogo</button>
+      <button class="btn alt" id="to-home">Início</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (t, p, ...kids) => { const e = document.createElement(t); if (p) for (const k in p) { const v = p[k]; if (v == null) continue; if (k === "class") e.className = v; else if (k === "html") e.innerHTML = v; else if (k === "text") e.textContent = v; else if (k.slice(0,2) === "on") e.addEventListener(k.slice(2).toLowerCase(), v); else e.setAttribute(k, v); } for (const c of kids) { if (c == null || c === false) continue; e.append(c.nodeType ? c : document.createTextNode(c)); } return e; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const initials = n => n.trim().slice(0,2).toUpperCase() || "?";
+
+/* ---------- Armazenamento (cache / localStorage) ---------- */
+const KEY = "jvs-sessao-v1";
+let mem = null;
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.players) return s; } catch (e) {}
+  return { players: [], stats: {}, byVariant: {}, history: [], seq: 1 };
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(sess)); } catch (e) {} }
+let sess = load();
+
+/* ---------- Navegação ---------- */
+let screen = "home";
+function show(name, title) {
+  screen = name;
+  ["home","select","setup","game"].forEach(s => $("#"+s).classList.toggle("on", s === name));
+  $("#topbar").hidden = name === "home";
+  $("#toptitle").textContent = title || "";
+  disarmBack();
+  window.scrollTo(0, 0);
+}
+let backArmed = false, backTimer = null;
+function disarmBack() { backArmed = false; clearTimeout(backTimer); const b = $("#backbtn"); b.classList.remove("armed"); b.textContent = "← Início"; }
+$("#backbtn").addEventListener("click", () => {
+  if (screen === "game") { // confirmar abandono
+    if (!backArmed) { backArmed = true; const b = $("#backbtn"); b.classList.add("armed"); b.textContent = "Sair sem salvar?"; backTimer = setTimeout(disarmBack, 2600); return; }
+  }
+  disarmBack(); endGameCleanup(); goHome();
+});
+function goHome() { renderHome(); show("home"); }
+
+/* ---------- Tema ---------- */
+function applyTheme(t) { if (t) document.documentElement.setAttribute("data-theme", t); else document.documentElement.removeAttribute("data-theme"); try { localStorage.setItem("jvs-tema", t || ""); } catch(e){} }
+try { const t = localStorage.getItem("jvs-tema"); if (t) applyTheme(t); } catch(e){}
+$("#themebtn").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  const dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(dark ? "light" : "dark");
+});
+
+/* ---------- Jogadores ---------- */
+function addPlayer(name) {
+  name = name.trim(); if (!name) return;
+  if (sess.players.some(p => p.nome.toLowerCase() === name.toLowerCase())) return;
+  const id = "p" + (sess.seq++);
+  sess.players.push({ id, nome: name });
+  sess.stats[id] = { v: 0, e: 0, d: 0, j: 0 };
+  save(); renderHome();
+}
+function removePlayer(id) { sess.players = sess.players.filter(p => p.id !== id); save(); renderHome(); }
+const pColor = i => i === 0 ? "var(--p1)" : "var(--p2)";
+
+function renderHome() {
+  // chips
+  const cont = $("#home-players"); cont.innerHTML = "";
+  if (!sess.players.length) cont.append(el("p", { class: "empty-note" }, "Nenhum jogador ainda. Toque em Gerenciar e adicione os participantes."));
+  sess.players.forEach((p, i) => {
+    cont.append(el("span", { class: "pchip" },
+      el("span", { class: "av", style: `background:${i % 2 ? "var(--p2)" : "var(--p1)"}` }, initials(p.nome)),
+      p.nome,
+      $("#manage").hidden ? null : el("button", { class: "rm", "aria-label": "Remover " + p.nome, onclick: () => removePlayer(p.id) }, "×")
+    ));
+  });
+  // placar
+  renderScoreboard(); renderPerVersion(); renderHistory();
+  $("#go-play").disabled = sess.players.length < 2;
+}
+
+function renderScoreboard() {
+  const box = $("#scoreboard"); box.innerHTML = "";
+  const rows = sess.players.map(p => { const s = sess.stats[p.id] || { v:0,e:0,d:0,j:0 }; return { p, s, pts: s.v*3 + s.e }; });
+  if (!rows.length) { box.append(el("p", { class: "empty-note" }, "Adicione jogadores para ver o placar.")); return; }
+  rows.sort((a, b) => b.pts - a.pts || b.s.v - a.s.v || a.s.j - b.s.j);
+  const t = el("table", { class: "board-score" });
+  t.append(el("tr", {}, el("th", {}, "#"), el("th", { style:"text-align:left" }, "Jogador"), el("th", {}, "V"), el("th", {}, "E"), el("th", {}, "D"), el("th", {}, "Pts")));
+  rows.forEach((r, i) => {
+    const tr = el("tr", i === 0 && r.pts > 0 ? { class: "lead-row" } : {});
+    tr.append(
+      el("td", { class: "mono" }, String(i + 1)),
+      el("td", { class: "name" }, el("span", { class: "rankdot", style: `background:${i%2?"var(--p2)":"var(--p1)"}` }), r.p.nome),
+      el("td", { class: "mono" }, String(r.s.v)),
+      el("td", { class: "mono" }, String(r.s.e)),
+      el("td", { class: "mono" }, String(r.s.d)),
+      el("td", { class: "pts mono" }, String(r.pts))
+    );
+    t.append(tr);
+  });
+  box.append(t);
+  box.append(el("p", { class: "muted", style: "font-size:.74rem;margin:.6rem 0 0;text-align:center" }, "Pts = 3 por vitória, 1 por empate."));
+}
+
+function renderPerVersion() {
+  const box = $("#perversion"); box.innerHTML = "";
+  const counts = {};
+  sess.history.forEach(h => counts[h.variant] = (counts[h.variant] || 0) + 1);
+  const ids = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
+  if (!ids.length) { box.append(el("p", { class: "empty-note" }, "Nenhuma partida jogada ainda.")); return; }
+  ids.forEach(id => box.append(el("span", { class: "pvtag", html: `${esc(VAR[id] ? VAR[id].nome : id)} · <b>${counts[id]}</b>` })));
+}
+
+function renderHistory() {
+  const box = $("#history"); box.innerHTML = "";
+  if (!sess.history.length) { box.append(el("p", { class: "empty-note" }, "As partidas aparecem aqui.")); return; }
+  sess.history.slice(0, 12).forEach(h => {
+    const v = VAR[h.variant];
+    const res = h.winner == null
+      ? el("span", { class: "hres" }, "Empate")
+      : el("span", { class: "hres", html: `<span class="w">${esc(h.names[h.winner])}</span> venceu` });
+    box.append(el("div", { class: "hrow" },
+      el("span", { class: "hv" }, v ? v.nome : h.variant),
+      el("span", { class: "muted", style:"overflow:hidden;text-overflow:ellipsis;white-space:nowrap" }, `${h.names[0]} × ${h.names[1]}`),
+      res
+    ));
+  });
+}
+
+$("#toggle-manage").addEventListener("click", () => { const m = $("#manage"); m.hidden = !m.hidden; renderHome(); });
+$("#addplayer").addEventListener("click", () => { addPlayer($("#newname").value); $("#newname").value = ""; $("#newname").focus(); });
+$("#newname").addEventListener("keydown", e => { if (e.key === "Enter") { addPlayer($("#newname").value); $("#newname").value = ""; } });
+let clearArmed = false;
+$("#clear-session").addEventListener("click", e => {
+  const b = e.currentTarget;
+  if (!clearArmed) { clearArmed = true; b.classList.add("armed"); b.textContent = "Confirmar: apagar tudo?"; setTimeout(() => { clearArmed = false; b.classList.remove("armed"); b.textContent = "Limpar sessão (apaga tudo)"; }, 3000); return; }
+  sess = { players: [], stats: {}, byVariant: {}, history: [], seq: 1 }; try { localStorage.removeItem(KEY); } catch(e){}
+  clearArmed = false; b.classList.remove("armed"); b.textContent = "Limpar sessão (apaga tudo)"; renderHome();
+});
+$("#go-play").addEventListener("click", () => { if (sess.players.length >= 2) { renderGames(); show("select", "Escolher jogo"); } });
+
+/* ---------- Grade de jogos ---------- */
+function renderGames() {
+  const g = $("#games"); g.innerHTML = "";
+  Object.values(VAR).forEach(v => {
+    g.append(el("button", { class: "gcard", onclick: () => openSetup(v.id) },
+      el("span", { class: "gtag" }, v.tag),
+      el("span", { class: "gico", html: `<svg viewBox="0 0 48 48">${v.icon}</svg>` }),
+      el("h3", {}, v.nome),
+      el("p", {}, v.desc)
+    ));
+  });
+}
+
+/* ---------- Setup da partida ---------- */
+let pick = { variant: null, a: null, b: null };
+function openSetup(vid) {
+  const v = VAR[vid];
+  pick.variant = vid;
+  pick.a = sess.players[0].id;
+  pick.b = sess.players[1].id;
+  $("#setup-title").textContent = v.nome;
+  $("#setup-desc").textContent = v.desc;
+  renderSetup();
+  show("setup", v.nome);
+}
+function renderSetup() {
+  const v = VAR[pick.variant];
+  const box = $("#vs-pick"); box.innerHTML = "";
+  const labels = v.sideLabels || ["X", "O"];
+  [["a", 0], ["b", 1]].forEach(([key, idx]) => {
+    const row = el("div", { class: "side-pick" });
+    row.append(el("div", { class: "lab" }, el("span", { class: "rankdot", style: `background:${pColor(idx)}` }), `${labels[idx]}`));
+    const chips = el("div", { class: "chips-pick" });
+    sess.players.forEach(p => {
+      const other = key === "a" ? pick.b : pick.a;
+      chips.append(el("button", { "aria-pressed": pick[key] === p.id, disabled: p.id === other ? "" : null, onclick: () => { pick[key] = p.id; renderSetup(); } }, p.nome));
+    });
+    row.append(chips);
+    box.append(row);
+    if (key === "a") box.append(el("button", { class: "btn alt sm swap", onclick: () => { const t = pick.a; pick.a = pick.b; pick.b = t; renderSetup(); } }, "⇅ trocar lados"));
+  });
+}
+$("#start-match").addEventListener("click", () => {
+  if (pick.a === pick.b) return;
+  startMatch(pick.variant, pick.a, pick.b);
+});
+
+/* ---------- Host do jogo ---------- */
+let gameCleanup = null, curMatch = null;
+function endGameCleanup() { if (gameCleanup) { try { gameCleanup(); } catch(e){} gameCleanup = null; } }
+function pName(pid) { const p = sess.players.find(x => x.id === pid); return p ? p.nome : "?"; }
+
+function startMatch(vid, aId, bId) {
+  endGameCleanup();
+  const v = VAR[vid];
+  const labels = v.sideLabels || ["X", "O"];
+  const sides = [
+    { pid: aId, name: pName(aId), label: labels[0], color: "var(--p1)", idx: 0 },
+    { pid: bId, name: pName(bId), label: labels[1], color: "var(--p2)", idx: 1 },
+  ];
+  curMatch = { vid, sides };
+  // cabeçalho
+  const gh = $("#ghead"); gh.innerHTML = "";
+  sides.forEach((s, i) => {
+    if (i === 1) gh.append(el("span", { class: "vs" }, "×"));
+    gh.append(el("div", { class: "pbadge", id: "badge" + i, style: `--pc:${s.color}` },
+      el("span", { class: "av" }, initials(s.name)),
+      el("span", { style: "min-width:0" }, el("span", { class: "nm", style: "display:block" }, s.name), el("span", { class: "rl" }, s.label))
+    ));
+  });
+  $("#game-rules").textContent = v.rules;
+  $("#ruleswrap").open = false;
+  const board = $("#game-board"); board.innerHTML = "";
+  show("game", v.nome);
+  const api = {
+    sides,
+    setTurn(i) { ["badge0","badge1"].forEach((b, k) => $("#"+b).classList.toggle("turn", k === i)); $("#status").innerHTML = `Vez de <span class="hl" style="color:${sides[i].color}">${esc(sides[i].name)}</span>`; },
+    setStatus(html) { $("#status").innerHTML = html; },
+    finish(winnerIdx) { recordResult(vid, sides, winnerIdx); showResult(winnerIdx, sides); },
+  };
+  gameCleanup = v.start(board, sides, api) || null;
+}
+
+function recordResult(vid, sides, winnerIdx) {
+  sides.forEach((s, i) => {
+    const st = sess.stats[s.pid]; if (!st) return;
+    st.j++;
+    if (winnerIdx == null) st.e++;
+    else if (winnerIdx === i) st.v++;
+    else st.d++;
+  });
+  sess.history.unshift({ variant: vid, names: [sides[0].name, sides[1].name], pids: [sides[0].pid, sides[1].pid], winner: winnerIdx, ts: Date.now() });
+  sess.history = sess.history.slice(0, 60);
+  save();
+}
+function showResult(winnerIdx, sides) {
+  const ov = $("#result-overlay");
+  if (winnerIdx == null) { $("#result-emoji").textContent = "🤝"; $("#result-title").textContent = "Empate!"; $("#result-title").className = "draw"; $("#result-sub").textContent = "Ninguém levou essa."; }
+  else { $("#result-emoji").textContent = "🏆"; $("#result-title").textContent = sides[winnerIdx].name + " venceu!"; $("#result-title").className = winnerIdx === 0 ? "p1" : "p2"; $("#result-sub").textContent = "Mandou bem."; }
+  ov.hidden = false;
+}
+$("#rematch").addEventListener("click", () => { $("#result-overlay").hidden = true; const m = curMatch; startMatch(m.vid, m.sides[1].pid, m.sides[0].pid); });
+$("#other-game").addEventListener("click", () => { $("#result-overlay").hidden = true; endGameCleanup(); renderGames(); show("select", "Escolher jogo"); });
+$("#to-home").addEventListener("click", () => { $("#result-overlay").hidden = true; endGameCleanup(); goHome(); });
+
+/* ======================= Utilidades de jogo ======================= */
+const L3 = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+function line3(cells) { for (const l of L3) { const [a,b,c] = l; if (cells[a] && cells[a] === cells[b] && cells[b] === cells[c]) return l; } return null; }
+// Procura uma sequência de pelo menos k do valor `who` em grade C×R; retorna as casas ou null.
+function findRun(get, C, R, k, who) {
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+  for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
+    if (get(x, y) !== who) continue;
+    for (const [dx, dy] of dirs) {
+      if (get(x - dx, y - dy) === who) continue; // começa no início da sequência
+      const cells = [[x, y]]; let nx = x + dx, ny = y + dy;
+      while (get(nx, ny) === who) { cells.push([nx, ny]); nx += dx; ny += dy; }
+      if (cells.length >= k) return cells;
+    }
+  }
+  return null;
+}
+// tabuleiro simples de células quadradas; onCell(i,x,y). retorna {root, cells[]}
+function makeGrid(C, R, onCell, opts = {}) {
+  const root = el("div", { class: "board", style: `grid-template-columns:repeat(${C},1fr);max-width:${opts.max || Math.min(C*64, 460)}px;--cg:${opts.gap || 6}px` });
+  const cells = [];
+  for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) {
+    const i = y * C + x;
+    const b = el("button", { class: "cell", "data-i": i, "data-x": x, "data-y": y, onclick: () => onCell(i, x, y) });
+    cells.push(b); root.append(b);
+  }
+  return { root, cells };
+}
+function symSpan(sym) { return el("span", { class: "sym " + (sym === "X" ? "x" : "o") }, sym); }
+function discSpan(idx) { return el("span", { class: "disc " + (idx === 0 ? "p1" : "p2") }); }
+function clearCell(c) { c.innerHTML = ""; c.className = "cell"; c.disabled = false; }
+
+/* ======================= Os 10 jogos ======================= */
+const VAR = {};
+function def(v) { VAR[v.id] = v; }
+
+/* 2 — Ultimate / Supremo (destaque) */
+def({
+  id: "supremo", nome: "Supremo", tag: "Estratégia", sideLabels: ["X", "O"],
+  desc: "Ultimate Tic-Tac-Toe: 9 tabuleiros. Sua jogada decide onde o outro joga.",
+  rules: "Conquiste 3 tabuleiros menores em linha. A casa onde você joga manda o adversário para o tabuleiro correspondente; se ele estiver resolvido, o adversário joga onde quiser.",
+  icon: '<rect x="6" y="6" width="36" height="36" rx="3"/><path d="M18 6v36M30 6v36M6 18h36M6 30h36"/>',
+  start(mount, sides, api) {
+    const boards = Array.from({ length: 9 }, () => Array(9).fill(""));
+    const won = Array(9).fill(null); // 'X'/'O'/'draw'
+    let cur = 0, next = null, over = false;
+    const wrap = el("div", { class: "ultimate", style: "max-width:440px" });
+    const minis = [], mcells = [];
+    for (let b = 0; b < 9; b++) {
+      const mini = el("div", { class: "mini" }); minis.push(mini); mcells[b] = [];
+      for (let c = 0; c < 9; c++) { const cell = el("button", { class: "mc", onclick: () => play(b, c) }); mcells[b].push(cell); mini.append(cell); }
+      wrap.append(mini);
+    }
+    mount.append(wrap);
+    const sym = () => cur === 0 ? "X" : "O";
+    function miniWinner(bd) { const w = line3(bd); if (w) return bd[w[0]]; if (bd.every(x => x)) return "draw"; return null; }
+    function allowed(b) { if (won[b]) return false; if (next == null) return true; return b === next; }
+    function paint() {
+      minis.forEach((m, b) => {
+        m.classList.toggle("active", !over && allowed(b) && (next == null || next === b));
+        mcells[b].forEach((cell, c) => { cell.textContent = boards[b][c]; cell.className = "mc" + (boards[b][c] === "X" ? " x" : boards[b][c] === "O" ? " o" : ""); cell.disabled = over || won[b] || boards[b][c] || !allowed(b); });
+        const old = m.querySelector(".overlay"); if (old) old.remove();
+        if (won[b]) m.append(el("div", { class: "overlay " + (won[b] === "X" ? "x" : won[b] === "O" ? "o" : "d") }, won[b] === "draw" ? "—" : won[b]));
+      });
+    }
+    function play(b, c) {
+      if (over || !allowed(b) || boards[b][c]) return;
+      boards[b][c] = sym();
+      const w = miniWinner(boards[b]); if (w) won[b] = w;
+      // vitória global
+      const globalCells = won.map(x => (x === "X" || x === "O") ? x : "");
+      const g = line3(globalCells);
+      if (g) { over = true; paint(); minis.forEach((m,i)=>{ if(g.includes(i)) m.style.outline="3px solid var(--ok)"; }); return api.finish(cur); }
+      if (won.every(x => x)) { over = true; paint(); return api.finish(null); }
+      next = (won[c] || boards[c].every(x => x)) ? null : c;
+      cur = 1 - cur; api.setTurn(cur); hint(); paint();
+    }
+    function hint() { const base = `Vez de <span class="hl" style="color:${sides[cur].color}">${esc(sides[cur].name)}</span>`; api.setStatus(base + (next == null ? " — jogue em qualquer tabuleiro livre" : " — jogue no tabuleiro destacado")); }
+    api.setTurn(0); hint(); paint();
+  }
+});
+
+/* 1 — Gobblet (peças de tamanhos diferentes) */
+def({
+  id: "gobblet", nome: "Engole-Engole", tag: "Sobreposição", sideLabels: ["Azul", "Vermelho"],
+  desc: "Peças de 3 tamanhos. A maior cobre a menor (sua ou do adversário).",
+  rules: "Cada um tem 3 peças pequenas, 3 médias e 3 grandes. Coloque uma peça numa casa vazia ou cubra uma peça menor. Também dá para mover uma peça que está no topo. Vence quem deixar 3 peças suas visíveis em linha.",
+  icon: '<circle cx="24" cy="24" r="16"/><circle cx="24" cy="24" r="10"/><circle cx="24" cy="24" r="4" class="f"/>',
+  start(mount, sides, api) {
+    const board = Array.from({ length: 9 }, () => []); // cada casa: pilha de {owner,size}
+    const pool = [[3,3,3],[3,3,3]]; // [jogador][size-1] contagem (size 1,2,3)
+    let cur = 0, over = false, sel = null; // sel: {from:'pool',size} ou {from:'cell',i}
+    const info = el("div");
+    const grid = makeGrid(3, 3, onCell, { max: 300, gap: 8 });
+    const poolEl = el("div", { class: "pool" });
+    mount.append(grid.root, poolEl, info);
+    const top = i => board[i].length ? board[i][board[i].length - 1] : null;
+    const topOwner = i => { const t = top(i); return t ? t.owner : null; };
+    function paint() {
+      grid.cells.forEach((c, i) => {
+        c.innerHTML = ""; c.className = "cell"; c.disabled = over;
+        const t = top(i);
+        if (t) { const d = discSpan(t.owner); const sz = [40,58,80][t.size-1]; d.style.width = d.style.height = sz + "%"; c.append(d); }
+        if (sel && sel.from === "cell" && sel.i === i) c.style.outline = "3px solid var(--gold)"; else c.style.outline = "";
+      });
+      poolEl.innerHTML = "";
+      [1,2,3].forEach(size => {
+        const slot = el("div", { class: "slot" });
+        const b = el("button", { class: "pbtn", style: `--pc:${sides[cur].color}`, "aria-pressed": sel && sel.from === "pool" && sel.size === size, disabled: (over || pool[cur][size-1] <= 0) ? "" : null, onclick: () => selectPool(size) });
+        const d = el("span", { class: "pdisc" }); const sz = [20,30,40][size-1]; d.style.width = d.style.height = sz + "px"; b.append(d);
+        slot.append(b, el("span", { class: "cnt" }, "×" + pool[cur][size-1]));
+        poolEl.append(slot);
+      });
+      api.setStatus(`Vez de <span class="hl" style="color:${sides[cur].color}">${esc(sides[cur].name)}</span>` + (sel ? " — escolha o destino" : " — escolha uma peça ou mova uma do topo"));
+    }
+    function selectPool(size) { if (over || pool[cur][size-1] <= 0) return; sel = { from: "pool", size }; paint(); }
+    function onCell(i) {
+      if (over) return;
+      if (!sel) { if (topOwner(i) === cur) { sel = { from: "cell", i }; paint(); } return; }
+      if (sel.from === "cell" && sel.i === i) { sel = null; paint(); return; }
+      const destTop = top(i);
+      const size = sel.from === "pool" ? sel.size : top(sel.i).size;
+      if (destTop && destTop.size >= size) return; // precisa ser estritamente maior
+      if (sel.from === "cell" && sel.i === i) return;
+      if (sel.from === "pool") { pool[cur][size-1]--; board[i].push({ owner: cur, size }); }
+      else { const piece = board[sel.i].pop(); board[i].push(piece); }
+      sel = null;
+      // vitória: mover pode expor linha do adversário
+      const owners = board.map((_, k) => topOwner(k));
+      const mine = line3(owners.map(o => o === cur ? "M" : ""));
+      const theirs = line3(owners.map(o => o === (1-cur) ? "T" : ""));
+      if (mine) { over = true; mark(mine); return api.finish(cur); }
+      if (theirs) { over = true; mark(theirs); return api.finish(1 - cur); }
+      cur = 1 - cur; api.setTurn(cur); paint();
+    }
+    function mark(line) { paint(); line.forEach(i => grid.cells[i].classList.add("win")); }
+    api.setTurn(0); paint();
+  }
+});
+
+/* 3 — Gomoku */
+def({
+  id: "gomoku", nome: "Gomoku", tag: "Linha", sideLabels: ["Azul", "Vermelho"],
+  desc: "Cinco em linha num tabuleiro 15×15. Role para ver tudo.",
+  rules: "Coloque uma peça por vez numa interseção vazia. Vence quem alinhar 5 (ou mais) peças seguidas na horizontal, vertical ou diagonal.",
+  icon: '<path d="M8 8v32M20 8v32M32 8v32M8 8h32M8 20h32M8 32h32"/><circle cx="20" cy="20" r="4" class="f"/>',
+  start(mount, sides, api) {
+    const N = 15; const g = Array(N*N).fill(-1); let cur = 0, over = false;
+    const box = el("div", { class: "scrollbox" });
+    const grid = makeGrid(N, N, onCell, { max: N*28, gap: 2 });
+    box.append(grid.root); mount.append(box);
+    const get = (x,y) => (x<0||y<0||x>=N||y>=N) ? -2 : g[y*N+x];
+    function onCell(i, x, y) {
+      if (over || g[i] >= 0) return;
+      g[i] = cur; const c = grid.cells[i]; c.append(discSpan(cur)); c.disabled = true;
+      const run = findRun((x,y)=>get(x,y), N, N, 5, cur);
+      if (run) { over = true; run.forEach(([rx,ry]) => grid.cells[ry*N+rx].classList.add("win")); return api.finish(cur); }
+      if (g.every(v => v >= 0)) { over = true; return api.finish(null); }
+      cur = 1 - cur; api.setTurn(cur);
+    }
+    api.setTurn(0);
+  }
+});
+
+/* 4 — Connect Four */
+def({
+  id: "connect4", nome: "Lig4", tag: "Gravidade", sideLabels: ["Azul", "Vermelho"],
+  desc: "Quatro em linha com gravidade: 7 colunas, 6 linhas.",
+  rules: "Escolha uma coluna; a peça cai até embaixo. Vence quem alinhar 4 peças seguidas em qualquer direção.",
+  icon: '<rect x="8" y="10" width="32" height="30" rx="3"/><circle cx="16" cy="32" r="3.2" class="f"/><circle cx="24" cy="32" r="3.2" class="f"/><circle cx="24" cy="24" r="3.2" class="f"/>',
+  start(mount, sides, api) {
+    const C = 7, R = 6; const g = Array(C*R).fill(-1); let cur = 0, over = false;
+    const grid = makeGrid(C, R, (i,x,y) => drop(x), { max: 420, gap: 6 });
+    grid.root.style.setProperty("--cg","6px");
+    grid.cells.forEach(c => { c.style.borderRadius = "50%"; });
+    mount.append(grid.root);
+    const get = (x,y) => (x<0||y<0||x>=C||y>=R) ? -2 : g[y*C+x];
+    function drop(x) {
+      if (over) return;
+      let y = -1; for (let r = R-1; r >= 0; r--) if (g[r*C+x] < 0) { y = r; break; }
+      if (y < 0) return;
+      const i = y*C+x; g[i] = cur; grid.cells[i].append(discSpan(cur));
+      const run = findRun((x,y)=>get(x,y), C, R, 4, cur);
+      if (run) { over = true; run.forEach(([rx,ry]) => grid.cells[ry*C+rx].classList.add("win")); return api.finish(cur); }
+      if (g.every(v => v >= 0)) { over = true; return api.finish(null); }
+      cur = 1 - cur; api.setTurn(cur);
+    }
+    api.setTurn(0);
+  }
+});
+
+/* 5 — Invertido (misère) */
+def({
+  id: "invertido", nome: "Invertido", tag: "Ao contrário", sideLabels: ["X", "O"],
+  desc: "Quem fizer 3 em linha PERDE. Fuja da sua própria linha.",
+  rules: "Coloque seu símbolo numa casa vazia. Se você completar 3 em linha do seu símbolo, você perde na hora. Empate se encher sem ninguém formar linha.",
+  icon: '<path d="M12 12l24 24M36 12L12 36"/><circle cx="24" cy="24" r="18" stroke-dasharray="4 4"/>',
+  start(mount, sides, api) {
+    const g = Array(9).fill(""); let cur = 0, over = false;
+    const grid = makeGrid(3, 3, onCell, { max: 300, gap: 8 });
+    mount.append(grid.root);
+    function onCell(i) {
+      if (over || g[i]) return;
+      const sym = cur === 0 ? "X" : "O"; g[i] = sym; grid.cells[i].append(symSpan(sym)); grid.cells[i].disabled = true;
+      const w = line3(g.map(v => v === sym ? sym : ""));
+      if (w) { over = true; w.forEach(k => grid.cells[k].classList.add("win")); return api.finish(1 - cur); } // quem fechou perde
+      if (g.every(v => v)) { over = true; return api.finish(null); }
+      cur = 1 - cur; api.setTurn(cur);
+    }
+    api.setTurn(0);
+    api.setStatus(`Vez de <span class="hl" style="color:${sides[0].color}">${esc(sides[0].name)}</span> — <b>não</b> faça 3 em linha`);
+  }
+});
+
+/* 6 — Livre (qualquer um usa X ou O) */
+def({
+  id: "livre", nome: "Livre", tag: "X ou O", sideLabels: ["Jogador 1", "Jogador 2"],
+  desc: "Qualquer um pode colocar X ou O. Quem fechar 3 iguais vence.",
+  rules: "Na sua vez, escolha X ou O e uma casa vazia. Vence quem colocar a peça que completa 3 símbolos IGUAIS em linha, não importa quem colocou os outros dois.",
+  icon: '<text x="7" y="30" font-size="20" font-family="sans-serif" font-weight="800" fill="currentColor" stroke="none">X</text><text x="24" y="34" font-size="22" font-family="sans-serif" font-weight="800" fill="currentColor" stroke="none">O</text>',
+  start(mount, sides, api) {
+    const g = Array(9).fill(""); let cur = 0, over = false, symSel = "X";
+    const picker = el("div", { class: "picker" });
+    const bx = el("button", { class: "pk x", "aria-pressed": true, onclick: () => setSym("X") }, "X");
+    const bo = el("button", { class: "pk o", "aria-pressed": false, onclick: () => setSym("O") }, "O");
+    picker.append(bx, bo);
+    const grid = makeGrid(3, 3, onCell, { max: 300, gap: 8 });
+    mount.append(picker, grid.root);
+    function setSym(s) { symSel = s; bx.setAttribute("aria-pressed", s === "X"); bo.setAttribute("aria-pressed", s === "O"); }
+    function status() { api.setStatus(`Vez de <span class="hl" style="color:${sides[cur].color}">${esc(sides[cur].name)}</span> — colocando <b>${symSel}</b>`); }
+    function onCell(i) {
+      if (over || g[i]) return;
+      g[i] = symSel; grid.cells[i].append(symSpan(symSel)); grid.cells[i].disabled = true;
+      const w = line3(g);
+      if (w) { over = true; w.forEach(k => grid.cells[k].classList.add("win")); return api.finish(cur); }
+      if (g.every(v => v)) { over = true; return api.finish(null); }
+      cur = 1 - cur; api.setTurn(cur); status();
+    }
+    api.setTurn(0); status();
+  }
+});
+
+/* 7 — Numérico (soma 15) */
+def({
+  id: "numerico", nome: "Numérico", tag: "Soma 15", sideLabels: ["Ímpares", "Pares"],
+  desc: "Ímpares (1,3,5,7,9) × Pares (2,4,6,8). Faça uma linha que some 15.",
+  rules: "Cada jogador usa só o seu conjunto de números, sem repetir. Vence quem completar uma linha (3 casas) cuja soma dê exatamente 15.",
+  icon: '<text x="7" y="20" font-size="12" font-family="monospace" font-weight="700" fill="currentColor" stroke="none">1 5 9</text><text x="7" y="34" font-size="12" font-family="monospace" font-weight="700" fill="currentColor" stroke="none">= 15</text>',
+  start(mount, sides, api) {
+    const g = Array(9).fill(null); const owner = Array(9).fill(-1);
+    const sets = [[1,3,5,7,9], [2,4,6,8]]; const used = [new Set(), new Set()];
+    let cur = 0, over = false, numSel = null;
+    const picker = el("div", { class: "picker", id: "numpicker" });
+    const grid = makeGrid(3, 3, onCell, { max: 320, gap: 8 });
+    mount.append(picker, grid.root);
+    function renderPicker() {
+      picker.innerHTML = "";
+      sets[cur].forEach(n => {
+        const b = el("button", { class: "pk", style: `color:${sides[cur].color}`, "aria-pressed": numSel === n, disabled: used[cur].has(n) ? "" : null, onclick: () => { numSel = n; renderPicker(); status(); } }, String(n));
+        picker.append(b);
+      });
+    }
+    function status() { api.setStatus(`Vez de <span class="hl" style="color:${sides[cur].color}">${esc(sides[cur].name)}</span>` + (numSel ? ` — colocando <b>${numSel}</b>` : " — escolha um número")); }
+    function onCell(i) {
+      if (over || g[i] != null || numSel == null) return;
+      g[i] = numSel; owner[i] = cur; used[cur].add(numSel);
+      grid.cells[i].append(el("span", { class: "numtok " + (cur === 0 ? "p1" : "p2") }, String(numSel))); grid.cells[i].disabled = true;
+      numSel = null;
+      let win = null;
+      for (const l of L3) { if (l.every(k => g[k] != null) && (g[l[0]]+g[l[1]]+g[l[2]] === 15)) { win = l; break; } }
+      if (win) { over = true; win.forEach(k => grid.cells[k].classList.add("win")); return api.finish(cur); }
+      if (g.every(v => v != null)) { over = true; return api.finish(null); }
+      cur = 1 - cur; api.setTurn(cur); renderPicker(); status();
+    }
+    api.setTurn(0); renderPicker(); status();
+  }
+});
+
+/* 8 — Ordem e Caos */
+def({
+  id: "ordemcaos", nome: "Ordem e Caos", tag: "Assimétrico", sideLabels: ["Ordem", "Caos"],
+  desc: "6×6. Ordem quer 5 iguais em linha; Caos quer impedir até encher.",
+  rules: "Os dois colocam X ou O em qualquer casa. ORDEM vence se aparecer uma linha de 5 símbolos iguais (não importa quem colocou). CAOS vence se o tabuleiro encher sem isso.",
+  icon: '<rect x="8" y="8" width="32" height="32" rx="3"/><path d="M14 14l8 8M22 14l-8 8"/><circle cx="32" cy="18" r="4"/><path d="M14 32h20"/>',
+  start(mount, sides, api) {
+    const N = 6; const g = Array(N*N).fill(""); let cur = 0, over = false, symSel = "X";
+    const picker = el("div", { class: "picker" });
+    const bx = el("button", { class: "pk x", "aria-pressed": true, onclick: () => setSym("X") }, "X");
+    const bo = el("button", { class: "pk o", "aria-pressed": false, onclick: () => setSym("O") }, "O");
+    picker.append(bx, bo);
+    const grid = makeGrid(N, N, onCell, { max: 360, gap: 4 });
+    mount.append(picker, grid.root);
+    const get = (x,y) => (x<0||y<0||x>=N||y>=N) ? null : (g[y*N+x] || null);
+    function setSym(s) { symSel = s; bx.setAttribute("aria-pressed", s==="X"); bo.setAttribute("aria-pressed", s==="O"); }
+    function status() { api.setStatus(`Vez de <span class="hl" style="color:${sides[cur].color}">${esc(sides[cur].name)}</span> (${sides[cur].label}) — colocando <b>${symSel}</b>`); }
+    function onCell(i) {
+      if (over || g[i]) return;
+      g[i] = symSel; grid.cells[i].append(symSpan(symSel)); grid.cells[i].disabled = true;
+      const run = findRun((x,y)=>get(x,y), N, N, 5, "X") || findRun((x,y)=>get(x,y), N, N, 5, "O");
+      if (run) { over = true; run.forEach(([rx,ry]) => grid.cells[ry*N+rx].classList.add("win")); return api.finish(0); } // Ordem
+      if (g.every(v => v)) { over = true; return api.finish(1); } // Caos
+      cur = 1 - cur; api.setTurn(cur); status();
+    }
+    api.setTurn(0); status();
+  }
+});
+
+/* 9 — BIG (5×5, 4 em linha) */
+def({
+  id: "big", nome: "BIG", tag: "Tabuleirão", sideLabels: ["Azul", "Vermelho"],
+  desc: "Tabuleiro 5×5: alinhe 4 peças da sua cor.",
+  rules: "Coloque uma peça por vez numa casa vazia. Vence quem alinhar 4 (ou mais) peças seguidas na horizontal, vertical ou diagonal.",
+  icon: '<rect x="7" y="7" width="34" height="34" rx="3"/><path d="M20 7v34M30 7v34M7 20h34M7 30h34"/>',
+  start(mount, sides, api) {
+    const N = 5; const g = Array(N*N).fill(-1); let cur = 0, over = false;
+    const grid = makeGrid(N, N, onCell, { max: 360, gap: 6 });
+    mount.append(grid.root);
+    const get = (x,y) => (x<0||y<0||x>=N||y>=N) ? -2 : g[y*N+x];
+    function onCell(i, x, y) {
+      if (over || g[i] >= 0) return;
+      g[i] = cur; grid.cells[i].append(discSpan(cur)); grid.cells[i].disabled = true;
+      const run = findRun((x,y)=>get(x,y), N, N, 4, cur);
+      if (run) { over = true; run.forEach(([rx,ry]) => grid.cells[ry*N+rx].classList.add("win")); return api.finish(cur); }
+      if (g.every(v => v >= 0)) { over = true; return api.finish(null); }
+      cur = 1 - cur; api.setTurn(cur);
+    }
+    api.setTurn(0);
+  }
+});
+
+/* 10 — Peças limitadas e movimentação */
+def({
+  id: "movimento", nome: "Três Móveis", tag: "Movimento", sideLabels: ["Azul", "Vermelho"],
+  desc: "Só 3 peças cada. Coloque-as e depois mova para formar a linha.",
+  rules: "Fase 1: cada um coloca suas 3 peças. Fase 2: na sua vez, mova uma peça sua para uma casa vazia vizinha (lado a lado, não diagonal). Vence quem alinhar as 3 peças.",
+  icon: '<circle cx="14" cy="24" r="5" class="f"/><circle cx="34" cy="24" r="5"/><path d="M20 24h8" stroke-dasharray="2 2"/><path d="M28 20l4 4-4 4"/>',
+  start(mount, sides, api) {
+    const g = Array(9).fill(-1); const placed = [0, 0]; let cur = 0, over = false, phase = 1, sel = -1, moves = 0;
+    const seen = {};
+    const grid = makeGrid(3, 3, onCell, { max: 300, gap: 8 });
+    const note = el("p", { class: "muted", style: "text-align:center;font-size:.85rem;margin-top:10px" });
+    mount.append(grid.root, note);
+    const adj = { 0:[1,3],1:[0,2,4],2:[1,5],3:[0,4,6],4:[1,3,5,7],5:[2,4,8],6:[3,7],7:[4,6,8],8:[5,7] };
+    function paint() {
+      grid.cells.forEach((c, i) => {
+        c.innerHTML = ""; c.className = "cell"; c.style.outline = ""; c.disabled = over;
+        if (g[i] >= 0) c.append(discSpan(g[i]));
+        if (sel === i) c.style.outline = "3px solid var(--gold)";
+        if (phase === 2 && sel >= 0 && g[i] < 0 && adj[sel].includes(i)) c.classList.add("playable");
+      });
+      note.textContent = phase === 1 ? "Fase 1: coloquem as 3 peças de cada um." : "Fase 2: mova uma peça sua para uma casa vizinha vazia.";
+    }
+    function checkWin() {
+      const w = line3(g.map(v => v === 0 ? "A" : v === 1 ? "B" : ""));
+      if (w && g[w[0]] === cur) { over = true; paint(); w.forEach(k => grid.cells[k].classList.add("win")); api.finish(cur); return true; }
+      return false;
+    }
+    function repetition() {
+      const key = g.join("") + "|" + cur; seen[key] = (seen[key] || 0) + 1; return seen[key] >= 3;
+    }
+    function nextTurn() { cur = 1 - cur; api.setTurn(cur); }
+    function onCell(i) {
+      if (over) return;
+      if (phase === 1) {
+        if (g[i] >= 0) return;
+        g[i] = cur; placed[cur]++;
+        if (checkWin()) return;
+        if (placed[0] === 3 && placed[1] === 3) phase = 2;
+        nextTurn(); paint(); return;
+      }
+      // fase 2
+      if (sel < 0) { if (g[i] === cur) { sel = i; paint(); } return; }
+      if (i === sel) { sel = -1; paint(); return; }
+      if (g[i] < 0 && adj[sel].includes(i)) {
+        g[i] = cur; g[sel] = -1; sel = -1; moves++;
+        if (checkWin()) return;
+        if (repetition() || moves >= 50) { over = true; paint(); return api.finish(null); }
+        nextTurn(); paint();
+      } else if (g[i] === cur) { sel = i; paint(); }
+    }
+    api.setTurn(0); paint();
+  }
+});
+
+/* ---------- Início ---------- */
+renderHome();
+
+// Hooks de teste
+window.__jvs = { VAR, startMatch, openSetup, show, get sess(){return sess;}, addPlayer, pick, boardCells: () => Array.from(document.querySelectorAll("#game-board .cell, #game-board .mc")) };
+})();
+</script>
+<script src="pwa.js" defer></script>
+</body>
+</html>
